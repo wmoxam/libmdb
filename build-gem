@@ -1,0 +1,6 @@
+#!/bin/sh
+
+gem uninstall libmdb
+rm libmdb*.gem
+gem build libmdb.gemspec
+gem install libmdb*.gem
