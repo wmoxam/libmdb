@@ -36,11 +36,18 @@ def escapes(s)
   s.to_s.split("").each do |char|
 		if (encode)
 			case char
-			when 'n': encoded << '\n'; break;
-			when 't': encoded << '\t'; break;
-			when 'r': encoded << '\r'; break;
+			when 'n'
+        encoded << '\n'
+        break
+			when 't'
+        encoded << '\t'
+        break
+			when 'r'
+        encoded << '\r'
+        break
       else
-        encoded << "\\#{char}"; break;
+        encoded << "\\#{char}"
+        break
       end
 			encode = false
 		elsif char == '\\'
@@ -86,7 +93,7 @@ opts.each do |opt, arg|
 	when '-d'
 		@delimiter = escapes(arg)
 		break
-	when '-R':
+	when '-R'
 		@row_delimiter = escapes(arg)
 		break
 	when '-I'
