@@ -115,7 +115,7 @@ opts.each do |opt, arg|
 end
 
 if ARGV.length < 2
-	STDERR.puts "Usage: #{argv[0]} [options] <file> <table>"
+	STDERR.puts "Usage: #{ARGV[0]} [options] <file> <table>"
 	STDERR.puts "where options are:"
 	STDERR.puts "  -H             supress header row"
 	STDERR.puts "  -Q             don't wrap text-like fields in quotes"
