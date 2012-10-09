@@ -156,7 +156,7 @@ module MDB
             :row_col_num, :int
   end
 
-  class MdbSargNode < FFI::Struct # The real deal
+  class MdbSargNode < FFI::Struct
     layout  :op, :int,
             :col, MdbColumn,
             :value, MdbAny,
@@ -338,10 +338,10 @@ module MDB
   #void mdb_index_page_reset(MdbIndexPage *ipg);
   #extern int mdb_index_pack_bitmap(MdbHandle *mdb, MdbIndexPage *ipg);
 
-  #/* stats.c */
-  #extern void mdb_stats_on(MdbHandle *mdb);
-  #extern void mdb_stats_off(MdbHandle *mdb);
-  #extern void mdb_dump_stats(MdbHandle *mdb);
+  # stats
+  attach_function :mdb_stats_on, [MdbHandle], :void
+  attach_function :mdb_stats_off, [MdbHandle], :void
+  attach_function :mdb_dump_stats, [MdbHandle], :void
 
   #/* like.c */
   #extern int mdb_like_cmp(char *s, char *r);
