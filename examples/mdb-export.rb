@@ -3,7 +3,7 @@
 
 require 'getoptlong'
 require 'rubygems'
-require '../lib/mdb'
+require 'libmdb'
 
 MDB::BIND_SIZE = 200000
 

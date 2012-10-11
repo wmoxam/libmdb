@@ -2,7 +2,7 @@
 # https://github.com/brianb/mdbtools/blob/master/src/util/mdb-array.c
 
 require 'rubygems'
-require '../lib/mdb'
+require 'libmdb'
 
 if ARGV.length < 2
   STDERR.puts "Usage: #{__FILE__} <file> <table>"

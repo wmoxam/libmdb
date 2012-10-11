@@ -3,7 +3,7 @@
 
 require 'getoptlong'
 require 'rubygems'
-require '../lib/mdbsql'
+require 'libmdb'
 require "readline"
 
 def do_set_cmd(sql, s)
