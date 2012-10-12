@@ -1,13 +1,17 @@
 require 'ffi'
+require 'ffi_helpers'
 
 module MDB
   extend FFI::Library
+  include FFIHelpers
+
   ffi_lib "mdb"
 
   BIND_SIZE = 16384
   MAX_IDX_COLS = 10
   MAX_INDEX_DEPTH = 10
   MAX_OBJ_NAME = 256
+  MEMO_OVERHEAD = 12
   PGSIZE = 4096
 
   enum :file_flags, [:no_flags, 0x00, :writeable, 0x01]
@@ -21,6 +25,24 @@ module MDB
        :float, 0x06, :double, 0x07, :datetime, 0x08, :binary, 0x09,
        :text, 0x0a, :ole, 0x0b, :memo, 0x0c, :repid, 0x0f,
        :numeric, 0x10, :complex, 0x12]
+
+  SHEXP_DROPTABLE = 1<<0
+	SHEXP_CST_NOTNULL = 1<<1
+	SHEXP_CST_NOTEMPTY = 1<<2
+	SHEXP_COMMENTS = 1<<3
+	SHEXP_DEFVALUES = 1<<4
+	SHEXP_INDEXES = 1<<5
+	SHEXP_RELATIONS = 1<<6
+
+  enum :shexp, [:drop_table, SHEXP_DROPTABLE,
+                :cst_not_null, SHEXP_CST_NOTNULL,
+                :cst__not_empty, SHEXP_CST_NOTEMPTY,
+                :comments, SHEXP_COMMENTS,
+                :def_values, SHEXP_DEFVALUES,
+                :indexes, SHEXP_INDEXES,
+                :relations, SHEXP_RELATIONS ]
+
+  SHEXP_DEFAULT = SHEXP_CST_NOTNULL | SHEXP_COMMENTS | SHEXP_INDEXES | SHEXP_RELATIONS
 
   callback :quote_schema_name, [:string, :string], :string
 
@@ -234,7 +256,6 @@ module MDB
     layout :len, :uint
   end
 
-
   # file
   #extern ssize_t mdb_read_pg(MdbHandle *mdb, unsigned long pg);
   #extern ssize_t mdb_read_alt_pg(MdbHandle *mdb, unsigned long pg);
@@ -249,8 +270,8 @@ module MDB
   #extern long   mdb_pg_get_int32(MdbHandle *mdb, int offset);
   #extern float  mdb_pg_get_single(MdbHandle *mdb, int offset);
   #extern double mdb_pg_get_double(MdbHandle *mdb, int offset);
-  attach_function :mdb_open, [:string, :file_flags], MdbHandle.by_ref
-  attach_function :mdb_close, [MdbTableDef], :void
+  soft_attach :mdb_open, [:string, :file_flags], MdbHandle.by_ref
+  soft_attach :mdb_close, [MdbTableDef], :void
   #extern MdbHandle *mdb_clone_handle(MdbHandle *mdb);
   #extern void mdb_swap_pgbuf(MdbHandle *mdb);
 
@@ -263,12 +284,12 @@ module MDB
 
   # table
   #extern MdbTableDef *mdb_alloc_tabledef(MdbCatalogEntry *entry);
-  attach_function :mdb_free_tabledef, [MdbTableDef], :void
+  soft_attach :mdb_free_tabledef, [MdbTableDef], :void
   #extern MdbTableDef *mdb_read_table(MdbCatalogEntry *entry);
-  attach_function :mdb_read_table_by_name, [MdbHandle, :string, :obj_type], MdbTableDef.by_ref
+  soft_attach :mdb_read_table_by_name, [MdbHandle, :string, :obj_type], MdbTableDef.by_ref
   #extern void mdb_append_column(GPtrArray *columns, MdbColumn *in_col);
   #extern void mdb_free_columns(GPtrArray *columns);
-  attach_function :mdb_read_columns, [MdbTableDef], :pointer
+  soft_attach :mdb_read_columns, [MdbTableDef], :pointer
   #extern void mdb_table_dump(MdbCatalogEntry *entry);
   #extern guint8 read_pg_if_8(MdbHandle *mdb, int *cur_pos);
   #extern guint16 read_pg_if_16(MdbHandle *mdb, int *cur_pos);
@@ -283,9 +304,9 @@ module MDB
   #extern int mdb_bind_column_by_name(MdbTableDef *table, gchar *col_name, void *bind_ptr, int *len_ptr);
   #extern void mdb_data_dump(MdbTableDef *table);
   #extern void mdb_date_to_tm(double td, struct tm *t);
-  attach_function :mdb_bind_column, [MdbTableDef, :int, :pointer, :pointer], :void
-  attach_function :mdb_rewind_table, [MdbTableDef], :int
-  attach_function :mdb_fetch_row, [MdbTableDef], :int
+  soft_attach :mdb_bind_column, [MdbTableDef, :int, :pointer, :pointer], :void
+  soft_attach :mdb_rewind_table, [MdbTableDef], :int
+  soft_attach :mdb_fetch_row, [MdbTableDef], :int
   #extern int mdb_is_fixed_col(MdbColumn *col);
   #extern char *mdb_col_to_string(MdbHandle *mdb, void *buf, int start, int datatype, int size);
   #extern int mdb_find_pg_row(MdbHandle *mdb, int pg_row, void **buf, int *off, size_t *len);
@@ -293,10 +314,24 @@ module MDB
   #extern int mdb_find_end_of_row(MdbHandle *mdb, int row);
   #extern int mdb_col_fixed_size(MdbColumn *col);
   #extern int mdb_col_disp_size(MdbColumn *col);
-  #extern size_t mdb_ole_read_next(MdbHandle *mdb, MdbColumn *col, void *ole_ptr);
-  #extern size_t mdb_ole_read(MdbHandle *mdb, MdbColumn *col, void *ole_ptr, int chunk_size);
-  attach_function :mdb_ole_read_full, [MdbHandle, MdbColumn, :pointer], :string
-  attach_function :mdb_set_date_fmt, [:string], :void
+  soft_attach :mdb_ole_read_next, [MdbHandle, MdbColumn, :pointer], :int
+  soft_attach :mdb_ole_read, [MdbHandle, MdbColumn, :pointer, :int], :int
+  unless soft_attach :mdb_ole_read_full, [MdbHandle, MdbColumn, :pointer], :string
+    # some older versions of mdbtools that are distributed with Ubuntu are missing this method
+    def self.mdb_ole_read_full(handle, column, length)
+      ole_ptr = FFI::MemoryPointer.new(:char, MEMO_OVERHEAD)
+
+	    ole_ptr = col[:bind_ptr]
+
+	    len = mdb_ole_read(mdb, col, ole_ptr, BIND_SIZE)
+	    result = col[:bind_ptr].read_string
+	    while (mdb_ole_read_next(mdb, col, ole_ptr) != 0 ) do
+		    result += col[:bind_ptr].read_string
+	    end
+	    result
+    end
+  end
+  soft_attach :mdb_set_date_fmt, [:string], :void
   #extern int mdb_read_row(MdbTableDef *table, unsigned int row);
 
   #/* dump.c */
@@ -311,7 +346,7 @@ module MDB
   #extern void __attribute__((deprecated)) mdb_init_backends();
   #extern void mdb_register_backend(char *backend_name, guint32 capabilities, MdbBackendType *backend_type, MdbBackendType *type_shortdate, MdbBackendType *type_autonum, const char *short_now, const char *long_now, const char *charset_statement, const char *drop_statement, const char *constaint_not_empty_statement, const char *column_comment_statement, const char *table_comment_statement, gchar* (*quote_schema_name)(const gchar*, const gchar*));
   #extern void __attribute__((deprecated)) mdb_remove_backends();
-  attach_function :mdb_set_default_backend, [MdbHandle, :string], :int
+  soft_attach :mdb_set_default_backend, [MdbHandle, :string], :int
   #extern void mdb_print_schema(MdbHandle *mdb, FILE *outfile, char *tabname, char *dbnamespace, guint32 export_options);
 
   #/* sargs.c */
@@ -339,9 +374,9 @@ module MDB
   #extern int mdb_index_pack_bitmap(MdbHandle *mdb, MdbIndexPage *ipg);
 
   # stats
-  attach_function :mdb_stats_on, [MdbHandle], :void
-  attach_function :mdb_stats_off, [MdbHandle], :void
-  attach_function :mdb_dump_stats, [MdbHandle], :void
+  soft_attach :mdb_stats_on, [MdbHandle], :void
+  soft_attach :mdb_stats_off, [MdbHandle], :void
+  soft_attach :mdb_dump_stats, [MdbHandle], :void
 
   #/* like.c */
   #extern int mdb_like_cmp(char *s, char *r);

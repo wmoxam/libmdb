@@ -9,5 +9,5 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
   spec.homepage = 'https://github.com/wmoxam/libmdb'
   spec.required_ruby_version = '>= 1.8.7'
-  spec.version = '0.1.1'
+  spec.version = '0.1.2'
 end
