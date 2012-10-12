@@ -136,7 +136,6 @@ def dump_results(out_file, sql, delimiter)
     pointer.null? ? nil : MDB::SQL::MdbSQLColumn.new(pointer)
   end.compact
 
-
 	if @headers
 		columns.each do |sqlcol|
       d = if sqlcol == columns.last

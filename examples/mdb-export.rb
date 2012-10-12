@@ -83,34 +83,23 @@ opts.each do |opt, arg|
   case opt
   when '-H'
     @header_row = false
-    break
 	when '-Q'
 		@quote_text = false
-		break
 	when '-q'
 		@quote_char = arg
-		break
 	when '-d'
 		@delimiter = escapes(arg)
-		break
 	when '-R'
 		@row_delimiter = escapes(arg)
-		break
 	when '-I'
 		@insert_dialect = arg
 		@header_row = false
-		break
 	when '-D'
 		MDB::mdb_set_date_fmt(arg)
-		break
 	when '-X'
 		@escape_char = arg
-		break
 	when '-N'
 		@namespace = arg
-		break
-  else
-		break
   end
 end
 
